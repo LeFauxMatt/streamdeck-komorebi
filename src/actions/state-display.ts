@@ -43,6 +43,9 @@ interface Variables {
 	containerIndex: number;
 	containerIndexOneBased: number;
 	numWindows: number;
+	stackIndex: number | undefined;
+	stackIndexOneBased: number | undefined;
+	numStackWindows: number | undefined;
 	activeWindowTitle: string | null | undefined;
 	activeWindowExe: string | null | undefined;
 	activeWindowExeTrunc: string | null | undefined;
@@ -132,6 +135,7 @@ class StateDisplayActionInstance implements DataSubscriber {
 			let activeWindow = undefined;
 			let activeWindowTitle = undefined;
 			let activeWindowExe = undefined;
+			let numStackWindows = undefined;
 
 			let numWindows = 0;
 			data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].containers.elements.map(i => {
@@ -140,6 +144,7 @@ class StateDisplayActionInstance implements DataSubscriber {
 
 			if (data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].monocle_container) {
 				activeWindowIndex = data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].monocle_container?.windows.focused;
+				numStackWindows = data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].monocle_container?.windows.elements.length;
 				if (activeWindowIndex != undefined) {
 					activeWindow = data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].monocle_container?.windows.elements[activeWindowIndex];
 					if (activeWindow) {
@@ -149,6 +154,7 @@ class StateDisplayActionInstance implements DataSubscriber {
 				}
 			} else if (data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].containers.elements[activeContainerIndex]) {
 				activeWindowIndex = data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].containers.elements[activeContainerIndex].windows.focused;
+				numStackWindows = data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].containers.elements[activeContainerIndex].windows.elements.length;
 				activeWindow = data.state.monitors.elements[activeMonitorIndex].workspaces.elements[activeWorkspaceIndex].containers.elements[activeContainerIndex].windows.elements[activeWindowIndex];
 				activeWindowTitle = activeWindow['title'];
 				activeWindowExe = activeWindow['exe'];
@@ -167,6 +173,9 @@ class StateDisplayActionInstance implements DataSubscriber {
 					numWindows: numWindows,
 					containerIndex: activeContainerIndex,
 					containerIndexOneBased: activeContainerIndex + 1,
+					stackIndex: activeWindowIndex,
+					stackIndexOneBased: activeWindowIndex != undefined ? activeWindowIndex + 1 : undefined,
+					numStackWindows: numStackWindows,
 					activeWindowTitle: activeWindowTitle,
 					activeWindowExe: activeWindowExe,
 					activeWindowExeTrunc: activeWindowExe?.replace(/\.exe$/, '')
