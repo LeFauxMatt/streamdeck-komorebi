@@ -1,6 +1,7 @@
 import streamDeck, { LogLevel } from "@elgato/streamdeck";
 
 import { StateDisplay } from "./actions/state-display";
+import { CycleStackDial, FocusDial, MoveDial, StackDial } from "./actions/window-dials";
 import { exec } from "child_process";
 import net from 'net';
 import { Notification } from "./komorebi-notifications";
@@ -79,6 +80,10 @@ createServer();
 
 // Register the increment action.
 streamDeck.actions.registerAction(new StateDisplay(broadcastManager));
+streamDeck.actions.registerAction(new FocusDial(broadcastManager));
+streamDeck.actions.registerAction(new MoveDial(broadcastManager));
+streamDeck.actions.registerAction(new CycleStackDial(broadcastManager));
+streamDeck.actions.registerAction(new StackDial(broadcastManager));
 
 // Finally, connect to the Stream Deck.
 streamDeck.connect();

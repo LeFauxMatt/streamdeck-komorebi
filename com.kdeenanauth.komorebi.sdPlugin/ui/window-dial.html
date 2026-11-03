@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Window Dial Settings</title>
+    <meta charset="utf-8" />
+    <script src="https://sdpi-components.dev/releases/v3/sdpi-components.js"></script>
+</head>
+
+<body>
+    <!--
+        Learn more about property inspector components at https://sdpi-components.dev/docs/components
+    -->
+    <sdpi-item label="Direction">
+        <sdpi-select setting="axis" default="horizontal">
+            <option value="horizontal">Left / right</option>
+            <option value="vertical">Up / down</option>
+        </sdpi-select>
+        <p>
+            Which way a turn goes for the focus, move and stack dials. The cycle stack dial always goes previous / next.
+        </p>
+    </sdpi-item>
+
+    <sdpi-item label="Press Komorebic Arguments">
+        <sdpi-textfield setting="pressArguments" placeholder="E.g. toggle-monocle"></sdpi-textfield>
+        <p>
+            Runs when the dial is pressed or its touch strip is tapped. Left unset, the stack dial runs <code>unstack</code> and the others do nothing.
+        </p>
+    </sdpi-item>
+</body>
+
+</html>

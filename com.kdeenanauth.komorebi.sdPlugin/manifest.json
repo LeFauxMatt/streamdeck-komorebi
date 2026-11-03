@@ -21,6 +21,102 @@
 			],
 			"DisableCaching": true,
 			"DisableAutomaticStates": true
+		},
+		{
+			"Name": "Focus Window",
+			"UUID": "com.kdeenanauth.komorebi.focusdial",
+			"Icon": "imgs/actions/statedisplay/icon",
+			"Tooltip": "Focuses the window to the left or right, and shows the focused window on the touch strip",
+			"PropertyInspectorPath": "ui/window-dial.html",
+			"Controllers": [
+				"Encoder"
+			],
+			"Encoder": {
+				"layout": "layouts/canvas.json",
+				"TriggerDescription": {
+					"Rotate": "Focus left / right",
+					"Push": "Run press arguments",
+					"Touch": "Run press arguments"
+				}
+			},
+			"States": [
+				{
+					"Image": "imgs/actions/statedisplay/key-blank"
+				}
+			],
+			"DisableAutomaticStates": true
+		},
+		{
+			"Name": "Move Window",
+			"UUID": "com.kdeenanauth.komorebi.movedial",
+			"Icon": "imgs/actions/statedisplay/icon",
+			"Tooltip": "Moves the focused window left or right, and shows where it sits on the touch strip",
+			"PropertyInspectorPath": "ui/window-dial.html",
+			"Controllers": [
+				"Encoder"
+			],
+			"Encoder": {
+				"layout": "layouts/canvas.json",
+				"TriggerDescription": {
+					"Rotate": "Move left / right",
+					"Push": "Run press arguments",
+					"Touch": "Run press arguments"
+				}
+			},
+			"States": [
+				{
+					"Image": "imgs/actions/statedisplay/key-blank"
+				}
+			],
+			"DisableAutomaticStates": true
+		},
+		{
+			"Name": "Cycle Stack",
+			"UUID": "com.kdeenanauth.komorebi.cyclestackdial",
+			"Icon": "imgs/actions/statedisplay/icon",
+			"Tooltip": "Cycles through the focused stack, and shows its windows on the touch strip",
+			"PropertyInspectorPath": "ui/window-dial.html",
+			"Controllers": [
+				"Encoder"
+			],
+			"Encoder": {
+				"layout": "layouts/canvas.json",
+				"TriggerDescription": {
+					"Rotate": "Previous / next in stack",
+					"Push": "Run press arguments",
+					"Touch": "Run press arguments"
+				}
+			},
+			"States": [
+				{
+					"Image": "imgs/actions/statedisplay/key-blank"
+				}
+			],
+			"DisableAutomaticStates": true
+		},
+		{
+			"Name": "Stack Window",
+			"UUID": "com.kdeenanauth.komorebi.stackdial",
+			"Icon": "imgs/actions/statedisplay/icon",
+			"Tooltip": "Stacks the focused window onto the one to the left or right, and shows the stacks on the touch strip",
+			"PropertyInspectorPath": "ui/window-dial.html",
+			"Controllers": [
+				"Encoder"
+			],
+			"Encoder": {
+				"layout": "layouts/canvas.json",
+				"TriggerDescription": {
+					"Rotate": "Stack left / right",
+					"Push": "Run press arguments",
+					"Touch": "Run press arguments"
+				}
+			},
+			"States": [
+				{
+					"Image": "imgs/actions/statedisplay/key-blank"
+				}
+			],
+			"DisableAutomaticStates": true
 		}
 	],
 	"Category": "Komorebi",

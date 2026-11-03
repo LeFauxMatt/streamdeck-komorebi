@@ -68,6 +68,8 @@ export class DataBroadcastManager {
         this.subscribers.add(subscriber);
         this.fetchKomorebicState().then(i => {
             subscriber.onData(i);
+        }).catch(() => {
+            // komorebi isn't running yet; the pipe delivers state once it is
         });
     }
 

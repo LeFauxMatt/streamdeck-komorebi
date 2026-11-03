@@ -17,6 +17,7 @@ Displays [Komorebi](https://github.com/LGUG2Z/komorebi) state information and op
 - **Focus Monitor/Workspace**: Optionally focus on the specified monitor/workspace on key-down
 - **Execute Komorebic**: Provide command for komorebic on key-down such as `cycle-stack`, `toggle-float`...etc
 - **Long press**: Provide alternative long press functionality
+- **Window dials** (Stream Deck +): Focus, Move, Stack and Cycle Stack dials run komorebic left/right (or up/down) as you turn them, and draw the focused workspace on the touch strip: a minimap of your tiles with the focused one lit, the tiles a turn would reach outlined, and stack counts. The Cycle Stack dial shows one segment per stacked window with the focused app and title. Pressing the dial or tapping the strip runs optional komorebic arguments (the Stack dial defaults to `unstack`)
 
 ## Roadmap
 - **Dial Support**: Support Stream Deck models which have dials
