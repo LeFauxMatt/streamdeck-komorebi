@@ -32,33 +32,47 @@ const TEXT = "#f3f4f6";
 const TEXT_DIM = "#9ca3af";
 const FONT = "Segoe UI, Arial, sans-serif";
 
+// The row of cells: the focused one in the centre, its neighbours either side, and a sliver past each neighbour
+// when more lie beyond it
+const ROW_Y = 22;
+const CELL_W = 52;
+const CELL_H = 28;
+const GAP = 6;
+const SLIVER_W = 4;
+
 interface WindowInfo {
 	exe?: string;
 	title?: string;
 }
 
-interface Tile {
-	x: number;
-	y: number;
-	w: number;
-	h: number;
+interface Container {
 	windows: WindowInfo[];
 	focusedWindow: number;
 }
 
 interface WorkspaceView {
-	tiles: Tile[];
-	focusedTile: number; // -1 when the workspace has no tiled windows
+	containers: Container[];
+	focused: number; // -1 when the workspace has no tiled windows
 	monocle: boolean;
 }
 
-function readWindows(container: any): WindowInfo[] {
+/**
+ * One cell of the row: a container for the focus, move and stack dials, a window for the cycle stack dial.
+ */
+interface Cell {
+	stacked: number; // windows in the cell, drawn as a layered tile with its count when above 1
+}
+
+function readContainer(container: any): Container {
 	const elements: any[] = container?.windows?.elements ?? [];
-	return elements.map((w) => ({ exe: w?.exe ?? undefined, title: w?.title ?? undefined }));
+	return {
+		windows: elements.map((w) => ({ exe: w?.exe ?? undefined, title: w?.title ?? undefined })),
+		focusedWindow: container?.windows?.focused ?? 0,
+	};
 }
 
 /**
- * The focused workspace of the focused monitor, as tiles in screen coordinates.
+ * The focused workspace of the focused monitor, its containers in komorebi's order.
  */
 function workspaceView(state: State): WorkspaceView | undefined {
 	const monitor = state.monitors?.elements?.[state.monitors.focused];
@@ -67,88 +81,16 @@ function workspaceView(state: State): WorkspaceView | undefined {
 		return undefined;
 	}
 
-	const area = monitor.work_area_size ?? monitor.size ?? { left: 0, top: 0, right: 1920, bottom: 1080 };
-
 	if (workspace.monocle_container) {
-		const windows = readWindows(workspace.monocle_container);
-		return {
-			tiles: [{
-				x: area.left ?? 0,
-				y: area.top ?? 0,
-				w: area.right ?? 1920,
-				h: area.bottom ?? 1080,
-				windows,
-				focusedWindow: workspace.monocle_container.windows?.focused ?? 0,
-			}],
-			focusedTile: 0,
-			monocle: true,
-		};
+		return { containers: [readContainer(workspace.monocle_container)], focused: 0, monocle: true };
 	}
 
-	const containers: any[] = workspace.containers?.elements ?? [];
-	// komorebi's Rect holds the width in `right` and the height in `bottom`
-	const layout: any[] = Array.isArray(workspace.latest_layout) && workspace.latest_layout.length === containers.length
-		? workspace.latest_layout
-		: containers.map((_, i) => ({
-			left: (area.left ?? 0) + i * (area.right ?? 1920) / containers.length,
-			top: area.top ?? 0,
-			right: (area.right ?? 1920) / containers.length,
-			bottom: area.bottom ?? 1080,
-		}));
-
-	const tiles = containers.map((container, i) => ({
-		x: layout[i].left ?? 0,
-		y: layout[i].top ?? 0,
-		w: layout[i].right ?? 0,
-		h: layout[i].bottom ?? 0,
-		windows: readWindows(container),
-		focusedWindow: container?.windows?.focused ?? 0,
-	}));
-
+	const containers = (workspace.containers?.elements ?? []).map(readContainer);
 	return {
-		tiles,
-		focusedTile: tiles.length > 0 ? Math.min(workspace.containers.focused ?? 0, tiles.length - 1) : -1,
+		containers,
+		focused: containers.length > 0 ? Math.min(workspace.containers.focused ?? 0, containers.length - 1) : -1,
 		monocle: false,
 	};
-}
-
-/**
- * The closest tile in a direction from the given one, or -1. This approximates komorebi's own choice.
- */
-function neighbour(tiles: Tile[], from: number, direction: Direction): number {
-	const f = tiles[from];
-	if (!f) {
-		return -1;
-	}
-	const tolerance = 4;
-	let best = -1;
-	let bestDistance = Infinity;
-	let bestOverlap = -Infinity;
-
-	tiles.forEach((t, i) => {
-		if (i === from) {
-			return;
-		}
-		let distance: number;
-		let overlap: number;
-		if (direction === "left" || direction === "right") {
-			overlap = Math.min(f.y + f.h, t.y + t.h) - Math.max(f.y, t.y);
-			distance = direction === "left" ? f.x - (t.x + t.w) : t.x - (f.x + f.w);
-		} else {
-			overlap = Math.min(f.x + f.w, t.x + t.w) - Math.max(f.x, t.x);
-			distance = direction === "up" ? f.y - (t.y + t.h) : t.y - (f.y + f.h);
-		}
-		if (overlap <= 0 || distance < -tolerance) {
-			return;
-		}
-		if (distance < bestDistance - tolerance || (Math.abs(distance - bestDistance) <= tolerance && overlap > bestOverlap)) {
-			best = i;
-			bestDistance = distance;
-			bestOverlap = overlap;
-		}
-	});
-
-	return best;
 }
 
 function escapeXml(value: string): string {
@@ -168,139 +110,97 @@ function text(x: number, y: number, value: string, size: number, fill: string, a
 	return `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}">${escapeXml(value)}</text>`;
 }
 
-function chevron(direction: Direction, cx: number, cy: number, fill: string, opacity: number): string {
-	const s = 6;
-	const points: Record<Direction, string> = {
-		left: `${cx + s / 2},${cy - s} ${cx - s / 2},${cy} ${cx + s / 2},${cy + s}`,
-		right: `${cx - s / 2},${cy - s} ${cx + s / 2},${cy} ${cx - s / 2},${cy + s}`,
-		up: `${cx - s},${cy + s / 2} ${cx},${cy - s / 2} ${cx + s},${cy + s / 2}`,
-		down: `${cx - s},${cy - s / 2} ${cx},${cy + s / 2} ${cx + s},${cy - s / 2}`,
-	};
-	return `<polyline points="${points[direction]}" fill="none" stroke="${fill}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}"/>`;
-}
-
 function header(mode: Mode, info: string): string {
 	return text(8, 15, LABELS[mode], 11, ACCENTS[mode], "start", "bold") +
 		text(WIDTH - 8, 15, truncate(info, 18), 11, TEXT_DIM, "end");
 }
 
-function message(mode: Mode, info: string, body: string): string {
-	return header(mode, info) + text(WIDTH / 2, 64, body, 13, TEXT_DIM, "middle");
+function message(mode: Mode, body: string): string {
+	return header(mode, "") + text(WIDTH / 2, 64, body, 13, TEXT_DIM, "middle");
 }
 
-/**
- * A minimap of the workspace's tiles: the focused tile in the dial's colour, the tiles a turn would reach outlined,
- * stacks drawn as layered tiles with their window count, and an arrow each way that lights up when turned.
- */
-function minimap(mode: Mode, view: WorkspaceView, directions: [Direction, Direction], flash?: Direction): string {
-	const accent = ACCENTS[mode];
-	const minX = Math.min(...view.tiles.map((t) => t.x));
-	const minY = Math.min(...view.tiles.map((t) => t.y));
-	const maxX = Math.max(...view.tiles.map((t) => t.x + t.w));
-	const maxY = Math.max(...view.tiles.map((t) => t.y + t.h));
-	const horizontal = directions[0] === "left";
-
-	// leave room for the arrows: either side of the map, or stacked on the right
-	const box = horizontal ? { x: 24, y: 24, w: 152, h: 70 } : { x: 8, y: 24, w: 164, h: 70 };
-	const scale = Math.min(box.w / Math.max(maxX - minX, 1), box.h / Math.max(maxY - minY, 1));
-	const offsetX = box.x + (box.w - (maxX - minX) * scale) / 2;
-	const offsetY = box.y + (box.h - (maxY - minY) * scale) / 2;
-
-	const targets = new Set(directions.map((d) => neighbour(view.tiles, view.focusedTile, d)).filter((i) => i >= 0));
+function tile(x: number, cell: Cell, fill: string, stroke: string, strokeWidth: number, dashed: boolean): string {
 	let svg = "";
-
-	view.tiles.forEach((t, i) => {
-		const x = offsetX + (t.x - minX) * scale + 1.5;
-		const y = offsetY + (t.y - minY) * scale + 1.5;
-		const w = Math.max(t.w * scale - 3, 2);
-		const h = Math.max(t.h * scale - 3, 2);
-		const focused = i === view.focusedTile;
-		const stacked = t.windows.length > 1;
-
-		if (stacked) {
-			svg += `<rect x="${x + 3}" y="${y - 2}" width="${w - 3}" height="${h - 1}" rx="3" fill="${TILE_FILL}" stroke="${focused ? accent : TILE_STROKE}" stroke-width="1" opacity="0.6"/>`;
-		}
-		svg += `<rect x="${x}" y="${y}" width="${w - (stacked ? 3 : 0)}" height="${h}" rx="3" ` +
-			`fill="${focused ? accent : TILE_FILL}" stroke="${focused ? accent : TILE_STROKE}" stroke-width="1"/>`;
-		if (targets.has(i)) {
-			svg += `<rect x="${x + 2}" y="${y + 2}" width="${w - (stacked ? 3 : 0) - 4}" height="${h - 4}" rx="2" ` +
-				`fill="none" stroke="${accent}" stroke-width="1.5" stroke-dasharray="3,2"/>`;
-		}
-		if (stacked && w > 14 && h > 12) {
-			svg += text(x + (w - 3) / 2, y + h / 2 + 4, String(t.windows.length), 11, TEXT, "middle", "bold");
-		}
-	});
-
-	const arrows: Record<Direction, [number, number]> = horizontal
-		? { left: [12, 59], right: [WIDTH - 12, 59], up: [0, 0], down: [0, 0] }
-		: { left: [0, 0], right: [0, 0], up: [WIDTH - 14, 44], down: [WIDTH - 14, 74] };
-	directions.forEach((d) => {
-		const reachable = neighbour(view.tiles, view.focusedTile, d) >= 0;
-		const lit = flash === d;
-		svg += chevron(d, arrows[d][0], arrows[d][1], lit || reachable ? accent : TEXT_DIM, lit ? 1 : reachable ? 0.6 : 0.2);
-	});
-
+	if (cell.stacked > 1) {
+		svg += `<rect x="${x + 3}" y="${ROW_Y - 3}" width="${CELL_W}" height="${CELL_H}" rx="4" fill="${TILE_FILL}" stroke="${stroke}" stroke-width="1" opacity="0.6"/>`;
+	}
+	svg += `<rect x="${x}" y="${ROW_Y}" width="${CELL_W}" height="${CELL_H}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"` +
+		(dashed ? ` stroke-dasharray="4,3"` : "") + `/>`;
+	if (cell.stacked > 1) {
+		svg += text(x + CELL_W / 2, ROW_Y + CELL_H / 2 + 5, String(cell.stacked), 14, TEXT, "middle", "bold");
+	}
 	return svg;
 }
 
 /**
- * One segment per window in the focused stack, the focused one lit, with the focused window's app and title below.
+ * The focused cell in the dial's colour, the next cell each side outlined, and past that a sliver with the count of
+ * cells further out. The side that was just turned to lights up.
  */
-function stackStrip(view: WorkspaceView, flash?: Direction): string {
-	const accent = ACCENTS.cycle;
-	const tile = view.tiles[view.focusedTile];
-	const count = tile.windows.length;
-	const gap = count > 12 ? 1 : 4;
-	const width = Math.min((176 - gap * (count - 1)) / count, 40);
-	const total = width * count + gap * (count - 1);
-	const start = (WIDTH - total) / 2;
-	let svg = "";
+function row(mode: Mode, cells: Cell[], focused: number, flash?: "prev" | "next"): string {
+	const accent = ACCENTS[mode];
+	const centre = (WIDTH - CELL_W) / 2;
+	let svg = tile(centre, cells[focused], accent, accent, 1, false);
 
-	for (let i = 0; i < count; i++) {
-		const focused = i === tile.focusedWindow;
-		svg += `<rect x="${start + i * (width + gap)}" y="30" width="${width}" height="14" rx="${Math.min(4, width / 2)}" ` +
-			`fill="${focused ? accent : TILE_FILL}" stroke="${focused ? accent : TILE_STROKE}" stroke-width="1"/>`;
+	const sides: ["prev" | "next", number, number][] = [
+		["prev", focused, centre - GAP - CELL_W],
+		["next", cells.length - 1 - focused, centre + CELL_W + GAP],
+	];
+	for (const [side, count, x] of sides) {
+		if (count === 0) {
+			continue;
+		}
+		const neighbour = cells[side === "prev" ? focused - 1 : focused + 1];
+		const lit = flash === side;
+		svg += tile(x, neighbour, TILE_FILL, lit ? accent : TILE_STROKE, lit ? 2 : 1, !lit);
+
+		const beyond = count - 1;
+		if (beyond > 0) {
+			const sliverX = side === "prev" ? x - GAP - SLIVER_W : x + CELL_W + GAP;
+			svg += `<rect x="${sliverX}" y="${ROW_Y + 4}" width="${SLIVER_W}" height="${CELL_H - 8}" rx="2" fill="${TILE_STROKE}"/>`;
+			svg += text(sliverX + SLIVER_W / 2, ROW_Y + CELL_H + 12, `+${beyond}`, 10, TEXT_DIM, "middle", "bold");
+		}
 	}
+	return svg;
+}
 
-	svg += chevron("left", 8, 37, flash === "left" ? accent : TEXT_DIM, flash === "left" ? 1 : count > 1 ? 0.6 : 0.2);
-	svg += chevron("right", WIDTH - 8, 37, flash === "right" ? accent : TEXT_DIM, flash === "right" ? 1 : count > 1 ? 0.6 : 0.2);
-
-	const window = tile.windows[tile.focusedWindow];
-	svg += text(WIDTH / 2, 70, truncate(exeName(window) || "window", 20), 15, TEXT, "middle", "bold");
+/**
+ * The focused window's app and title, large, under the row.
+ */
+function caption(window?: WindowInfo): string {
+	let svg = text(WIDTH / 2, 80, truncate(exeName(window) || "window", 20), 16, TEXT, "middle", "bold");
 	if (window?.title) {
-		svg += text(WIDTH / 2, 89, truncate(window.title, 32), 10, TEXT_DIM, "middle");
+		svg += text(WIDTH / 2, 95, truncate(window.title, 32), 11, TEXT_DIM, "middle");
 	}
 	return svg;
 }
 
 export function render(mode: Mode, settings: DialRenderSettings, state: State | undefined, flash?: Direction): string {
-	const directions: [Direction, Direction] = settings.axis === "vertical" ? ["up", "down"] : ["left", "right"];
 	let body: string;
+	const side = flash === "left" || flash === "up" ? "prev" : flash ? "next" : undefined;
 
 	const view = state ? workspaceView(state) : undefined;
 	if (!state) {
-		body = message(mode, "", "komorebi not running");
+		body = message(mode, "komorebi not running");
 	} else if (state.is_paused) {
-		body = message(mode, "", "paused");
-	} else if (!view || view.focusedTile < 0) {
-		body = message(mode, "", "empty workspace");
+		body = message(mode, "paused");
+	} else if (!view || view.focused < 0) {
+		body = message(mode, "empty workspace");
 	} else {
-		const tile = view.tiles[view.focusedTile];
-		const position = `${tile.focusedWindow + 1}/${tile.windows.length}`;
-		switch (mode) {
-			case "focus":
-				body = header(mode, view.monocle ? "monocle" : exeName(tile.windows[tile.focusedWindow])) + minimap(mode, view, directions, flash);
-				break;
-			case "move":
-				body = header(mode, view.monocle ? "monocle" : `${view.focusedTile + 1}/${view.tiles.length}`) + minimap(mode, view, directions, flash);
-				break;
-			case "stack":
-				body = header(mode, tile.windows.length > 1 ? `${position} stacked` : "not stacked") + minimap(mode, view, directions, flash);
-				break;
-			default:
-				body = header(mode, position) + stackStrip(view, flash);
-				break;
+		const container = view.containers[view.focused];
+		const window = container.windows[container.focusedWindow];
+		const position = `${container.focusedWindow + 1}/${container.windows.length}`;
+
+		if (mode === "cycle") {
+			const cells = container.windows.map(() => ({ stacked: 1 }));
+			body = header(mode, position) + row(mode, cells, container.focusedWindow, side);
+		} else {
+			const cells = view.containers.map((c) => ({ stacked: c.windows.length }));
+			const info = view.monocle ? "monocle"
+				: mode === "stack" ? (container.windows.length > 1 ? `${position} stacked` : "not stacked")
+				: `${view.focused + 1}/${view.containers.length}`;
+			body = header(mode, info) + row(mode, cells, view.focused, side);
 		}
+		body += caption(window);
 	}
 
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">` +
